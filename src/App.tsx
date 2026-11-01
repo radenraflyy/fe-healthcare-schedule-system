@@ -1,4 +1,5 @@
-function App() {
-  return <h1 className="text-red-500">HELLO WORLD!!</h1>;
+import AppRouter from './router/AppRouter'
+
+export default function App() {
+  return <AppRouter />
 }
-export default App;
