@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+@layer base {
+  button:not(:disabled),
+  a[href]:not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="link"]:not([aria-disabled="true"]),
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 @theme {
   --font-sans: "Lato", "Circular", Arial, sans-serif;
   --font-display: "Circular", "Lato", Arial, sans-serif;

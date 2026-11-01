@@ -1,1 +1,2 @@
-export type WorkflowStep = { id: number; title: string; description: string }
+export type WorkflowStep = { id: string; title: string; description: string; position: number };
+export type WorkflowStepInput = { title: string; description: string };
