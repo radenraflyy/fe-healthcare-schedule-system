@@ -15,6 +15,23 @@ yarn dev
 
 Buka URL Vite yang ditampilkan (umumnya `http://localhost:5173`). Atur endpoint dengan `VITE_GRAPHQL_URL`; bila variabel tidak diisi, frontend menggunakan `http://localhost:3000/graphql`. Vite membaca variabel `VITE_` saat server/build dimulai.
 
+## Menjalankan frontend lokal dengan Docker
+
+Salin contoh environment, lalu jalankan Vite dalam container dengan hot reload:
+
+```sh
+cp .env.example .env
+docker compose up --build -d
+```
+
+Frontend tersedia di `http://localhost:5173`. Source code di-mount dari folder lokal, sehingga perubahan file langsung dimuat ulang. Compose meneruskan `VITE_GRAPHQL_URL` dari `.env` ke Vite; URL GraphQL harus dapat dijangkau browser. Untuk mengganti port FE, atur `FE_PORT` (default `5173`):
+
+```sh
+VITE_GRAPHQL_URL=http://localhost:3000/graphql docker compose up --build -d
+```
+
+Jika dependencies berubah, rebuild image dengan `docker compose up --build -d`. Untuk menghentikan container, jalankan `docker compose down`.
+
 ## Tes dan pemeriksaan
 
 ```sh

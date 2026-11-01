@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: yarn dev --host 0.0.0.0
+    environment:
+      VITE_GRAPHQL_URL: ${VITE_GRAPHQL_URL:-http://localhost:3000/graphql}
+    ports:
+      - "${FE_PORT:-5173}:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
