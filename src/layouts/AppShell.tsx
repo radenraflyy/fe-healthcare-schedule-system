@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { BrandMark } from '../components/BrandMark';
 import { Icon } from '../components/Icon';
@@ -9,14 +9,15 @@ import { MobileNav } from '../components/MobileNav';
 import { api } from '../data-services/api';
 import { isNotificationUnread } from '../data-services/appointment-rules';
 import { useAuth } from '../data-services/auth-context';
+import NotificationsView from '../views/notifications/NotificationsView';
 
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const notifications = useQuery({
-    queryKey: ['notifications'],
-    queryFn: api.notifications,
+    queryKey: ['notifications', 'badge'],
+    queryFn: () => api.notifications(1, 50),
     staleTime: 15_000,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
@@ -26,24 +27,27 @@ export function AppShell() {
       .length ?? 0;
   const [logoutError, setLogoutError] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationsOpenFor, setNotificationsOpenFor] = useState<string | null>(null);
+  const notificationsOpen = notificationsOpenFor === location.key;
   const isPatients = location.pathname.startsWith('/patients');
   const isWorkflow = location.pathname.startsWith('/workflow');
   const isDoctorAdmin = location.pathname.startsWith('/admin/doctors');
   const isUsersAdmin = location.pathname.startsWith('/admin/users');
+  const isMySchedule = location.pathname.startsWith('/my-schedule');
   const pageLabel = isDoctorAdmin
     ? 'Dokter & jam praktik'
-    : isUsersAdmin
-      ? 'Manajemen pengguna'
-      : isWorkflow
-        ? 'Workflow klinik'
-        : isPatients
-          ? location.pathname.includes('/new')
-            ? 'Tambah pasien'
-            : location.pathname.includes('/edit')
-              ? 'Edit pasien'
-              : 'Daftar pasien'
-          : location.pathname.startsWith('/notifications')
-            ? 'Notifikasi'
+    : isMySchedule
+      ? 'Jadwal praktik'
+      : isUsersAdmin
+        ? 'Manajemen pengguna'
+        : isWorkflow
+          ? 'Workflow klinik'
+          : isPatients
+            ? location.pathname.includes('/new')
+              ? 'Tambah pasien'
+              : location.pathname.includes('/edit')
+                ? 'Edit pasien'
+                : 'Daftar pasien'
             : location.pathname.startsWith('/calendar')
               ? 'Kalender'
               : location.pathname.startsWith('/appointments')
@@ -57,10 +61,11 @@ export function AppShell() {
     .toUpperCase();
   const today = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date());
   const navigation = [
-    { to: '/doctors', label: 'Dokter', icon: 'users' },
+    ...(user?.role === 'DOCTOR'
+      ? [{ to: '/my-schedule', label: 'Jadwal praktik', icon: 'calendar' }]
+      : [{ to: '/doctors', label: 'Dokter', icon: 'users' }]),
     { to: '/calendar', label: 'Kalender', icon: 'calendar' },
     { to: '/appointments', label: 'Janji temu', icon: 'calendar' },
-    { to: '/notifications', label: 'Notifikasi', icon: 'bell' },
     ...(user?.role === 'ADMIN'
       ? [
           { to: '/patients', label: 'Daftar pasien', icon: 'users' },
@@ -154,18 +159,26 @@ export function AppShell() {
             <div className='hidden items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-500 sm:flex'>
               <Icon name='calendar' size={15} /> {today}
             </div>
-            <Link
-              aria-label={unreadCount ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'}
-              to='/notifications'
-              className='relative rounded-xl p-2.5 text-slate-500 transition-colors hover:bg-slate-100'
-            >
-              <Icon name='bell' />
-              {unreadCount > 0 && (
-                <span className='absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-rata-red px-1 text-[9px] font-bold leading-none text-white'>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
+            <div className='relative'>
+              <button
+                type='button'
+                aria-label={unreadCount ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'}
+                aria-haspopup='dialog'
+                aria-expanded={notificationsOpen}
+                onClick={() => setNotificationsOpenFor(notificationsOpen ? null : location.key)}
+                className='relative rounded-xl p-2.5 text-slate-500 transition-colors hover:bg-slate-100'
+              >
+                <Icon name='bell' />
+                {unreadCount > 0 && (
+                  <span className='absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-rata-red px-1 text-[9px] font-bold leading-none text-white'>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <NotificationsView onClose={() => setNotificationsOpenFor(null)} />
               )}
-            </Link>
+            </div>
             <div className='hidden h-8 w-px bg-slate-200 sm:block' />
             <div className='hidden items-center gap-2.5 sm:flex'>
               <div className='flex size-8 items-center justify-center rounded-full bg-slate-800 text-[10px] font-bold text-white'>
@@ -191,7 +204,8 @@ export function AppShell() {
                     (item.to === '/patients' && isPatients) ||
                     (item.to === '/admin/doctors' && isDoctorAdmin) ||
                     (item.to === '/admin/users' && isUsersAdmin) ||
-                    (item.to === '/workflow' && isWorkflow)
+                    (item.to === '/workflow' && isWorkflow) ||
+                    (item.to === '/my-schedule' && isMySchedule)
                   }
                   label={item.label}
                   icon={item.icon}

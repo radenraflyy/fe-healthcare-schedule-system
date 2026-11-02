@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createColumnHelper } from '@tanstack/react-table';
 import { Navigate } from 'react-router-dom';
 
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { DataTable } from '../../components/DataTable';
 import { Icon } from '../../components/Icon';
 import { PageHeading } from '../../components/PageHeading';
-import { PrimaryButton } from '../../components/PrimaryButton';
 import { type Doctor, api } from '../../data-services/api';
 import { useAuth } from '../../data-services/auth-context';
 import { getFormSubmissionError, setFormSubmissionError } from '../../lib/tanstack-form-errors';
@@ -17,22 +18,22 @@ const field =
   'h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-rata-red/50 focus:ring-3 focus:ring-rata-red/10';
 const fieldError = 'mt-1 block text-xs font-normal text-rose-700';
 const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const doctorColumn = createColumnHelper<Doctor>();
 
 export default function DoctorManagementView() {
   const { user } = useAuth();
   const cache = useQueryClient();
-  const [doctorPage, setDoctorPage] = useState(1);
   const [selectedId, setSelectedId] = useState('');
   const [editing, setEditing] = useState<Doctor | null>(null);
   const [doctorName, setDoctorName] = useState('');
   const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
   const [disconnectDoctor, setDisconnectDoctor] = useState(false);
   const doctors = useQuery({
-    queryKey: ['doctors', 'management', doctorPage],
-    queryFn: () => api.doctors(doctorPage, 12),
+    queryKey: ['doctors', 'management'],
+    queryFn: () => api.allDoctors(),
     staleTime: 30_000,
   });
-  const doctorItems = doctors.data?.doctors.items ?? [];
+  const doctorItems = doctors.data ?? [];
   const currentId = selectedId || doctorItems[0]?.id || '';
   const selectedDoctor = useQuery({
     queryKey: ['doctor', currentId],
@@ -105,6 +106,50 @@ export default function DoctorManagementView() {
     onSuccess: refresh,
   });
   const actionError = removeDoctor.error?.message ?? removeWindow.error?.message;
+  const doctorColumns = [
+    doctorColumn.accessor('name', {
+      header: 'Nama dokter',
+      cell: (info) => (
+        <button
+          type='button'
+          onClick={() => setSelectedId(info.row.original.id)}
+          className='text-left'
+        >
+          <span className='block text-sm font-semibold text-slate-800'>{info.getValue()}</span>
+          <span className='mt-1 block text-[11px] text-slate-400'>
+            {currentId === info.row.original.id && selectedDoctor.data?.doctor
+              ? 'Profil dokter'
+              : 'Pilih untuk melihat profil'}
+          </span>
+        </button>
+      ),
+    }),
+    doctorColumn.display({
+      id: 'actions',
+      header: 'Aksi',
+      cell: (info) => (
+        <div className='flex gap-1'>
+          <button
+            type='button'
+            aria-label={`Edit ${info.row.original.name}`}
+            onClick={() => startEditDoctor(info.row.original)}
+            className='rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rata-red'
+          >
+            <Icon name='edit' size={15} />
+          </button>
+          <button
+            type='button'
+            aria-label={`Hapus ${info.row.original.name}`}
+            disabled={removeDoctor.isPending}
+            onClick={() => setDoctorToDelete(info.row.original)}
+            className='rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50'
+          >
+            <Icon name='trash' size={15} />
+          </button>
+        </div>
+      ),
+    }),
+  ];
 
   if (user?.role !== 'ADMIN') return <Navigate to='/doctors' replace />;
 
@@ -144,12 +189,6 @@ export default function DoctorManagementView() {
       );
     }
   }
-  function startCreateDoctor() {
-    setEditing(null);
-    setDisconnectDoctor(false);
-    setDoctorName('');
-    doctorForm.reset({ name: '', userId: '' });
-  }
   function startEditDoctor(doctor: Doctor) {
     setEditing(doctor);
     setDisconnectDoctor(false);
@@ -181,10 +220,6 @@ export default function DoctorManagementView() {
                 Akun yang terhubung dapat memperbarui jadwalnya sendiri.
               </p>
             </div>
-            <PrimaryButton onClick={startCreateDoctor}>
-              <Icon name='plus' size={16} />
-              Tambah dokter
-            </PrimaryButton>
           </div>
           {doctors.isLoading ? (
             <p role='status' className='py-8 text-center text-sm text-slate-500'>
@@ -199,78 +234,15 @@ export default function DoctorManagementView() {
               Belum ada dokter.
             </p>
           ) : (
-            <div className='mb-5 space-y-2'>
-              {doctorItems.map((doctor) => (
-                <div
-                  key={doctor.id}
-                  className={`flex items-center gap-3 rounded-xl border p-3 ${currentId === doctor.id ? 'border-rata-red/30 bg-rose-50/50' : 'border-slate-100'}`}
-                >
-                  <button
-                    type='button'
-                    onClick={() => setSelectedId(doctor.id)}
-                    className='min-w-0 flex-1 text-left'
-                  >
-                    <p className='truncate text-sm font-semibold text-slate-800'>{doctor.name}</p>
-                    <p className='mt-1 truncate text-[11px] text-slate-400'>
-                      {currentId === doctor.id && selectedDoctor.data?.doctor
-                        ? 'Profil dokter'
-                        : 'Pilih untuk melihat profil'}
-                    </p>
-                  </button>
-                  <button
-                    type='button'
-                    aria-label={`Edit ${doctor.name}`}
-                    onClick={() => startEditDoctor(doctor)}
-                    className='rounded-lg p-2 text-slate-500 hover:bg-white hover:text-rata-red'
-                  >
-                    <Icon name='edit' size={15} />
-                  </button>
-                  <button
-                    type='button'
-                    aria-label={`Hapus ${doctor.name}`}
-                    disabled={removeDoctor.isPending}
-                    onClick={() => setDoctorToDelete(doctor)}
-                    className='rounded-lg p-2 text-slate-500 hover:bg-white hover:text-rose-700 disabled:opacity-50'
-                  >
-                    <Icon name='trash' size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <DataTable
+              data={doctorItems}
+              columns={doctorColumns}
+              pageSize={5}
+              searchPlaceholder='Cari nama dokter…'
+              emptyMessage='Dokter tidak ditemukan.'
+              getRowId={(doctor) => doctor.id}
+            />
           )}
-          {!doctors.isLoading &&
-            !doctors.error &&
-            doctors.data &&
-            doctors.data.doctors.totalPages > 1 && (
-              <div className='mb-5 flex items-center justify-between gap-2'>
-                <p className='text-[11px] text-slate-400'>
-                  {doctors.data.doctors.total} dokter · halaman {doctorPage} dari{' '}
-                  {doctors.data.doctors.totalPages}
-                </p>
-                <div className='flex gap-2'>
-                  <button
-                    type='button'
-                    disabled={doctorPage <= 1 || doctors.isFetching}
-                    onClick={() => setDoctorPage((current) => Math.max(1, current - 1))}
-                    className='rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:opacity-40'
-                  >
-                    Sebelumnya
-                  </button>
-                  <button
-                    type='button'
-                    disabled={doctorPage >= doctors.data.doctors.totalPages || doctors.isFetching}
-                    onClick={() =>
-                      setDoctorPage((current) =>
-                        Math.min(doctors.data!.doctors.totalPages, current + 1),
-                      )
-                    }
-                    className='rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:opacity-40'
-                  >
-                    Berikutnya
-                  </button>
-                </div>
-              </div>
-            )}
           <form
             noValidate
             onSubmit={(event) => {

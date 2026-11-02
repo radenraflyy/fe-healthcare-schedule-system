@@ -1,34 +1,39 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useForm, useStore } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation } from 'react-router-dom';
+import { createColumnHelper } from '@tanstack/react-table';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { DataTable } from '../../components/DataTable';
 import { PageHeading } from '../../components/PageHeading';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { type Appointment, api } from '../../data-services/api';
 import { canCustomerCancel, canRoleUpdateStatus } from '../../data-services/appointment-rules';
 import { useAuth } from '../../data-services/auth-context';
 import { GraphQLRequestError } from '../../data-services/graphql';
+import { formatDateTime } from '../../utils/date-time';
+import AppointmentDetailView from './AppointmentDetailView';
+import BookingView from './BookingView';
 import { rescheduleResolver } from './reschedule/config';
 
-function displayTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' }).format(
-    new Date(value),
-  );
-}
 const statusLabels = {
   REQUESTED: 'Menunggu konfirmasi',
   CONFIRMED: 'Terkonfirmasi',
   CANCELLED: 'Dibatalkan',
   COMPLETED: 'Selesai',
 };
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
+const appointmentColumn = createColumnHelper<Appointment>();
 export default function AppointmentsView() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
+  const bookingOpen = location.pathname === '/appointments/new';
+  const { id: appointmentId } = useParams();
+  const detailOpen = Boolean(appointmentId) && appointmentId !== 'new';
   const [scheduleToDelete, setScheduleToDelete] = useState<Appointment | null>(null);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<Appointment['status'] | ''>('');
@@ -37,15 +42,16 @@ export default function AppointmentsView() {
   const [doctorId, setDoctorId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const invalidDateRange = Boolean(from && to && from > to);
+  const hasActiveFilters = Boolean(status || from || to || doctorId || customerId);
   const doctorOptions = useQuery({
     queryKey: ['doctors', 'scheduleFilter'],
-    queryFn: () => api.doctors(1, 100),
+    queryFn: () => api.allDoctors(),
     enabled: user?.role === 'ADMIN',
     staleTime: 60_000,
   });
   const customerOptions = useQuery({
     queryKey: ['customers', 'scheduleFilter'],
-    queryFn: () => api.customers(1, 100),
+    queryFn: () => api.allCustomers(),
     enabled: user?.role === 'ADMIN',
     staleTime: 60_000,
   });
@@ -93,6 +99,52 @@ export default function AppointmentsView() {
     remove.reset();
     update.mutate({ id: item.id, status });
   }
+  const columns = useMemo(
+    () => [
+      appointmentColumn.accessor('scheduledAt', {
+        header: 'Jadwal',
+        cell: (info) => (
+          <span className='font-semibold text-slate-800'>
+            {formatDateTime(info.getValue(), { dateStyle: 'full', timeStyle: 'short' })} ·{' '}
+            {info.row.original.durationMinutes} menit
+          </span>
+        ),
+      }),
+      appointmentColumn.accessor((item) => item.doctor.name, { id: 'doctor', header: 'Dokter' }),
+      ...(user?.role !== 'CUSTOMER'
+        ? [
+            appointmentColumn.accessor((item) => item.customer.name, {
+              id: 'customer',
+              header: 'Pasien',
+            }),
+          ]
+        : []),
+      appointmentColumn.accessor('objective', {
+        header: 'Tujuan konsultasi',
+        cell: (info) => <span className='line-clamp-2 max-w-xs'>{info.getValue()}</span>,
+      }),
+      appointmentColumn.accessor('status', {
+        header: 'Status',
+        cell: (info) => (
+          <span className='font-semibold text-slate-700'>{statusLabels[info.getValue()]}</span>
+        ),
+      }),
+      appointmentColumn.display({
+        id: 'actions',
+        header: 'Aksi',
+        cell: (info) => (
+          <AppointmentCard
+            item={info.row.original}
+            role={user?.role ?? 'CUSTOMER'}
+            busy={update.isPending || remove.isPending}
+            onAction={action}
+            onDelete={() => setScheduleToDelete(info.row.original)}
+          />
+        ),
+      }),
+    ],
+    [user?.role, update.isPending, remove.isPending, action],
+  );
 
   return (
     <>
@@ -185,7 +237,7 @@ export default function AppointmentsView() {
                   className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-rata-red/50 focus:ring-3 focus:ring-rata-red/10'
                 >
                   <option value=''>Semua dokter</option>
-                  {(doctorOptions.data?.doctors.items ?? []).map((doctor) => (
+                  {(doctorOptions.data ?? []).map((doctor) => (
                     <option key={doctor.id} value={doctor.id}>
                       {doctor.name}
                     </option>
@@ -203,7 +255,7 @@ export default function AppointmentsView() {
                   className='mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-rata-red/50 focus:ring-3 focus:ring-rata-red/10'
                 >
                   <option value=''>Semua customer</option>
-                  {(customerOptions.data?.customers.items ?? []).map((customer) => (
+                  {(customerOptions.data ?? []).map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name} · {customer.email}
                     </option>
@@ -228,6 +280,16 @@ export default function AppointmentsView() {
             Hapus filter
           </button>
         </div>
+        {doctorOptions.error && (
+          <p role='alert' className='mt-3 text-xs text-rose-700'>
+            Gagal memuat daftar dokter: {doctorOptions.error.message}
+          </p>
+        )}
+        {customerOptions.error && (
+          <p role='alert' className='mt-3 text-xs text-rose-700'>
+            Gagal memuat daftar pasien: {customerOptions.error.message}
+          </p>
+        )}
         {invalidDateRange && (
           <p role='alert' className='mt-3 text-xs text-rose-700'>
             Tanggal awal harus sebelum atau sama dengan tanggal akhir.
@@ -245,27 +307,24 @@ export default function AppointmentsView() {
       ) : !schedules.data?.schedules.items.length ? (
         <div className='rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center'>
           <h2 className='font-semibold text-slate-800'>
-            {status || from || to ? 'Tidak ada janji temu yang cocok' : 'Belum ada janji temu'}
+            {hasActiveFilters ? 'Tidak ada janji temu yang cocok' : 'Belum ada janji temu'}
           </h2>
           <p className='mt-1 text-sm text-slate-500 mb-3'>
-            {status || from || to
+            {hasActiveFilters
               ? 'Coba ubah atau hapus filter.'
               : 'Jadwalkan konsultasi dengan dokter pilihan Anda.'}
           </p>
         </div>
       ) : (
-        <div className='space-y-3'>
-          {schedules.data.schedules.items.map((item) => (
-            <AppointmentCard
-              key={item.id}
-              item={item}
-              role={user?.role ?? 'CUSTOMER'}
-              busy={update.isPending || remove.isPending}
-              onAction={action}
-              onDelete={() => setScheduleToDelete(item)}
-            />
-          ))}
-        </div>
+        <DataTable
+          data={schedules.data.schedules.items}
+          columns={columns}
+          pageSize={PAGE_SIZE}
+          showPagination={false}
+          searchPlaceholder='Cari jadwal di halaman ini…'
+          emptyMessage='Tidak ada janji temu di halaman ini.'
+          getRowId={(item) => item.id}
+        />
       )}
       {schedules.data?.schedules && schedules.data.schedules.totalPages > 1 && (
         <div className='mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -313,6 +372,10 @@ export default function AppointmentsView() {
           });
         }}
       />
+      {bookingOpen && <BookingView onClose={() => navigate('/appointments', { replace: true })} />}
+      {detailOpen && (
+        <AppointmentDetailView onClose={() => navigate('/appointments', { replace: true })} />
+      )}
     </>
   );
 }
@@ -367,28 +430,11 @@ function AppointmentCard({
   }
   const isCustomer = role === 'CUSTOMER';
   return (
-    <article className='rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6'>
-      <div className='flex flex-col justify-between gap-3 sm:flex-row sm:items-start'>
-        <div>
-          <p className='text-xs font-bold uppercase tracking-wide text-rata-red'>
-            {statusLabels[item.status]}
-          </p>
-          <h2 className='mt-1 text-lg font-bold text-slate-800'>{item.doctor.name}</h2>
-          <p className='mt-1 text-sm text-slate-500'>
-            {displayTime(item.scheduledAt)} · {item.durationMinutes} menit
-          </p>
-        </div>
-        <Link to={`/appointments/${item.id}`} className='text-sm font-semibold text-rata-red'>
-          Detail jadwal →
-        </Link>
-      </div>
-      <p className='mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-600'>
-        {item.objective}
-      </p>
-      {item.cancelReason && (
-        <p className='mt-2 text-xs text-slate-500'>Alasan pembatalan: {item.cancelReason}</p>
-      )}
-      <div className='mt-4 flex flex-wrap gap-2'>
+    <div className='flex min-w-57.5 flex-col items-start gap-2'>
+      <Link to={`/appointments/${item.id}`} className='text-xs font-semibold text-rata-red'>
+        Detail
+      </Link>
+      <div className='flex flex-wrap gap-2'>
         {isCustomer && canCustomerCancel(item.status, item.scheduledAt, new Date().getTime()) && (
           <button
             disabled={busy}
@@ -489,10 +535,10 @@ function AppointmentCard({
                     aria-pressed={slot === value}
                     className={`rounded-lg border px-3 py-2 text-xs ${slot === value ? 'border-rata-red bg-rose-50 text-rata-red' : 'border-slate-200 text-slate-600'}`}
                   >
-                    {new Intl.DateTimeFormat(undefined, {
+                    {formatDateTime(value, {
                       dateStyle: 'short',
                       timeStyle: 'short',
-                    }).format(new Date(value))}
+                    })}
                   </button>
                 ))}
               </div>
@@ -530,6 +576,6 @@ function AppointmentCard({
           </form.Subscribe>
         </form>
       )}
-    </article>
+    </div>
   );
 }

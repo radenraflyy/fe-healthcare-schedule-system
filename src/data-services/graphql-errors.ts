@@ -23,7 +23,7 @@ export function safeGraphQLError(
     return `Terlalu banyak percobaan login.${limitText}${retryText}`;
   }
   if (code === 'SERVICE_UNAVAILABLE' || status === 502 || status === 503)
-    return 'Layanan sedang tidak tersedia. Coba lagi sebentar.';
+    return 'API Gateway atau service backend tidak merespons tepat waktu. Pastikan servicenya berjalan lalu coba lagi.';
   if (code === 'INTERNAL_SERVER_ERROR')
     return 'Terjadi kendala pada server. Silakan coba lagi sebentar.';
   if (code === 'BAD_USER_INPUT' || code === 'NOT_FOUND')

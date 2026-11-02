@@ -27,10 +27,14 @@ export default function LoginView() {
       api.login(email, password),
     onSuccess: ({ login: result }) => {
       saveSession({ accessToken: result.accessToken, user: result.user });
-      navigate((location.state as { from?: string } | null)?.from ?? '/doctors', { replace: true });
+      navigate(
+        (location.state as { from?: string } | null)?.from ??
+          (result.user.role === 'DOCTOR' ? '/my-schedule' : '/doctors'),
+        { replace: true },
+      );
     },
   });
-  if (user) return <Navigate to='/doctors' replace />;
+  if (user) return <Navigate to={user.role === 'DOCTOR' ? '/my-schedule' : '/doctors'} replace />;
   const inputClass =
     'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-rata-red/50 focus:ring-3 focus:ring-rata-red/10';
 

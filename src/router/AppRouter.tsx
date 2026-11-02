@@ -1,19 +1,18 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import { useAuth } from '../data-services/auth-context';
 import { AppShell } from '../layouts/AppShell';
-import AppointmentDetailPage from '../pages/appointments/AppointmentDetailPage';
 import AppointmentsPage from '../pages/appointments/AppointmentsPage';
-import BookAppointmentPage from '../pages/appointments/BookAppointmentPage';
 import CalendarPage from '../pages/appointments/CalendarPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
 import DoctorManagementPage from '../pages/doctors/DoctorManagementPage';
 import DoctorsPage from '../pages/doctors/DoctorsPage';
-import NotificationsPage from '../pages/notifications/NotificationsPage';
 import PatientDetailPage from '../pages/patients/PatientDetailPage';
 import PatientFormPage from '../pages/patients/PatientFormPage';
 import PatientListPage from '../pages/patients/PatientListPage';
 import UsersManagementPage from '../pages/users/UsersManagementPage';
+import DoctorScheduleView from '../views/doctors/DoctorScheduleView';
 import WorkflowView from '../views/workflow/WorkflowView';
 import { RequireAuth } from './RequireAuth';
 import { RequireRole } from './RequireRole';
@@ -30,8 +29,23 @@ export default function AppRouter() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to='/doctors' replace />} />
-        <Route path='doctors' element={<DoctorsPage />} />
+        <Route index element={<HomeRedirect />} />
+        <Route
+          path='doctors'
+          element={
+            <RequireRole roles={['ADMIN', 'CUSTOMER']}>
+              <DoctorsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path='my-schedule'
+          element={
+            <RequireRole roles={['DOCTOR']}>
+              <DoctorScheduleView />
+            </RequireRole>
+          }
+        />
         <Route
           path='admin/doctors'
           element={
@@ -46,12 +60,11 @@ export default function AppRouter() {
           path='appointments/new'
           element={
             <RequireRole roles={['CUSTOMER']}>
-              <BookAppointmentPage />
+              <AppointmentsPage />
             </RequireRole>
           }
         />
-        <Route path='appointments/:id' element={<AppointmentDetailPage />} />
-        <Route path='notifications' element={<NotificationsPage />} />
+        <Route path='appointments/:id' element={<AppointmentsPage />} />
         <Route
           path='patients'
           element={
@@ -104,4 +117,9 @@ export default function AppRouter() {
       </Route>
     </Routes>
   );
+}
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === 'DOCTOR' ? '/my-schedule' : '/doctors'} replace />;
 }

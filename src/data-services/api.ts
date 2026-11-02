@@ -10,6 +10,7 @@ export type Page<T> = {
   totalPages: number;
 };
 export type Doctor = { id: string; name: string; createdAt?: string; updatedAt?: string };
+export type DoctorAccountLink = { userId: string; name: string };
 export type CustomerStatus = 'ACTIVE' | 'WAITING' | 'COMPLETED';
 export type CustomerProfile = {
   id: string;
@@ -65,6 +66,19 @@ const APPOINTMENT =
 const CUSTOMER =
   'id userId name email phone gender birthDate address treatment status nextVisit note createdAt updatedAt';
 
+async function fetchAllPages<T>(
+  fetchPage: (page: number, limit: number) => Promise<Page<T>>,
+): Promise<T[]> {
+  const limit = 100;
+  const first = await fetchPage(1, limit);
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const result = await fetchPage(page, limit);
+    items.push(...result.items);
+  }
+  return items;
+}
+
 export const api = {
   async login(email: string, password: string) {
     return graphqlRequest<{
@@ -95,15 +109,28 @@ export const api = {
       { page, limit },
     );
   },
+  async allDoctors() {
+    return fetchAllPages(async (page, limit) => (await this.doctors(page, limit)).doctors);
+  },
   async unlinkedDoctors() {
     return graphqlRequest<{ unlinkedDoctors: Doctor[] }>(
       'query UnlinkedDoctors { unlinkedDoctors { id name createdAt updatedAt } }',
+    );
+  },
+  async doctorAccountLinks() {
+    return graphqlRequest<{ doctorAccountLinks: DoctorAccountLink[] }>(
+      'query DoctorAccountLinks { doctorAccountLinks { userId name } }',
     );
   },
   async doctor(id: string) {
     return graphqlRequest<{ doctor: Doctor }>(
       'query Doctor($id: ID!) { doctor(id: $id) { id name createdAt updatedAt } }',
       { id },
+    );
+  },
+  async myDoctor() {
+    return graphqlRequest<{ myDoctor: Doctor }>(
+      'query MyDoctor { myDoctor { id name createdAt updatedAt } }',
     );
   },
   async createDoctor(name: string, userId?: string | null) {
@@ -173,17 +200,11 @@ export const api = {
       { page, limit },
     );
   },
+  async allCustomers() {
+    return fetchAllPages(async (page, limit) => (await this.customers(page, limit)).customers);
+  },
   async searchCustomers(search: string) {
-    const first = await this.customers(1, 100);
-    const pages =
-      first.customers.totalPages > 1
-        ? await Promise.all(
-            Array.from({ length: first.customers.totalPages - 1 }, (_, index) =>
-              this.customers(index + 2, 100),
-            ),
-          )
-        : [];
-    const all = [...first.customers.items, ...pages.flatMap((page) => page.customers.items)];
+    const all = await this.allCustomers();
     const normalized = search.trim().toLowerCase();
     return all.filter((customer) =>
       [
@@ -294,10 +315,10 @@ export const api = {
       { id, scheduledAt: new Date(scheduledAt).toISOString() },
     );
   },
-  async notifications() {
+  async notifications(page = 1, limit = 50) {
     return graphqlRequest<{ notifications: Page<Notification> }>(
       'query Notifications($page: Int!, $limit: Int!) { notifications(page: $page, limit: $limit) { items { id scheduleId title message createdAt readAt } page limit total totalPages } }',
-      { page: 1, limit: 50 },
+      { page, limit },
     );
   },
   async markRead(id: string) {

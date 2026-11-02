@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { PageHeading } from '../../components/PageHeading';
 import { api } from '../../data-services/api';
+import { formatDateTime } from '../../utils/date-time';
 
 function startOfWeek(date: Date) {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -129,10 +130,10 @@ export default function CalendarView() {
                             className='block rounded-lg border border-slate-100 bg-slate-50 p-2 transition hover:border-rose-200 hover:bg-rose-50'
                           >
                             <p className='text-[11px] font-bold text-rata-red'>
-                              {new Intl.DateTimeFormat(undefined, {
+                              {formatDateTime(item.scheduledAt, {
                                 hour: '2-digit',
                                 minute: '2-digit',
-                              }).format(new Date(item.scheduledAt))}
+                              })}
                             </p>
                             <p className='mt-1 truncate text-xs font-semibold text-slate-700'>
                               {item.customer.name}

@@ -27,8 +27,13 @@ export default function UsersManagementView() {
   const [role, setRole] = useState<StaffRole>('DOCTOR');
   const [doctorProfileId, setDoctorProfileId] = useState('');
   const [roleDrafts, setRoleDrafts] = useState<Record<string, UserRole>>({});
+  const [doctorLinkDrafts, setDoctorLinkDrafts] = useState<Record<string, string>>({});
   const users = useQuery({ queryKey: ['adminUsers'], queryFn: api.adminUsers });
   const unlinkedDoctors = useQuery({ queryKey: ['unlinkedDoctors'], queryFn: api.unlinkedDoctors });
+  const doctorAccountLinks = useQuery({
+    queryKey: ['doctorAccountLinks'],
+    queryFn: api.doctorAccountLinks,
+  });
   const create = useMutation({
     mutationFn: async (input: {
       name: string;
@@ -76,6 +81,7 @@ export default function UsersManagementView() {
         queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
         queryClient.invalidateQueries({ queryKey: ['doctors'] }),
         queryClient.invalidateQueries({ queryKey: ['unlinkedDoctors'] }),
+        queryClient.invalidateQueries({ queryKey: ['doctorAccountLinks'] }),
       ]);
     },
   });
@@ -84,6 +90,23 @@ export default function UsersManagementView() {
       api.setUserRole(userId, role),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+    },
+  });
+  const linkDoctor = useMutation({
+    mutationFn: ({ doctorId, userId }: { doctorId: string; userId: string }) => {
+      const profile = unlinkedDoctors.data?.unlinkedDoctors.find((item) => item.id === doctorId);
+      if (!profile)
+        throw new Error('Profil dokter tidak tersedia. Muat ulang daftar lalu coba lagi.');
+      return api.updateDoctor(profile.id, profile.name, userId);
+    },
+    onSuccess: async () => {
+      setDoctorLinkDrafts({});
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['unlinkedDoctors'] }),
+        queryClient.invalidateQueries({ queryKey: ['doctorAccountLinks'] }),
+        queryClient.invalidateQueries({ queryKey: ['doctors'] }),
+        queryClient.invalidateQueries({ queryKey: ['myDoctor'] }),
+      ]);
     },
   });
 
@@ -111,9 +134,6 @@ export default function UsersManagementView() {
       <div className='grid items-start gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]'>
         <section className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6'>
           <h2 className='text-sm font-bold text-slate-800'>Buat akun pengguna</h2>
-          <p className='mt-1 text-xs leading-5 text-slate-400'>
-            Berikan kata sandi awal kepada pengguna melalui jalur yang aman.
-          </p>
           <form onSubmit={submitCreate} className='mt-5 grid gap-4'>
             <label className='text-xs font-semibold text-slate-600'>
               Nama lengkap
@@ -217,9 +237,7 @@ export default function UsersManagementView() {
           <div className='flex items-start justify-between gap-3'>
             <div>
               <h2 className='text-sm font-bold text-slate-800'>Daftar akun</h2>
-              <p className='mt-1 text-xs text-slate-400'>
-                Atur role tanpa perlu mencari UUID akun.
-              </p>
+              <p className='mt-1 text-xs text-slate-400'>Atur role</p>
             </div>
             <span className='rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500'>
               {users.data?.adminUsers.length ?? 0} akun
@@ -245,6 +263,9 @@ export default function UsersManagementView() {
               {users.data.adminUsers.map((account) => {
                 const selectedRole = roleDrafts[account.id] ?? account.role;
                 const isSelf = account.id === currentUser?.id;
+                const linkedDoctor = doctorAccountLinks.data?.doctorAccountLinks.find(
+                  (link) => link.userId === account.id,
+                );
                 return (
                   <div
                     key={account.id}
@@ -285,6 +306,89 @@ export default function UsersManagementView() {
                         ? 'Menyimpan…'
                         : 'Simpan role'}
                     </button>
+                    {account.role === 'DOCTOR' && (
+                      <div className='flex gap-2 sm:col-span-3'>
+                        {linkedDoctor ? (
+                          <div
+                            aria-label={`Profil dokter tertaut untuk ${account.email}`}
+                            className='flex h-11 min-w-0 flex-1 items-center rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm text-slate-500'
+                          >
+                            {linkedDoctor.name}
+                            <span className='ml-auto text-xs font-semibold text-emerald-700'>
+                              Sudah tertaut
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <select
+                              aria-label={`Profil dokter untuk ${account.email}`}
+                              value={
+                                doctorLinkDrafts[account.id] ??
+                                unlinkedDoctors.data?.unlinkedDoctors[0]?.id ??
+                                ''
+                              }
+                              onChange={(event) =>
+                                setDoctorLinkDrafts((previous) => ({
+                                  ...previous,
+                                  [account.id]: event.target.value,
+                                }))
+                              }
+                              disabled={
+                                doctorAccountLinks.isLoading ||
+                                doctorAccountLinks.isError ||
+                                unlinkedDoctors.isLoading ||
+                                !unlinkedDoctors.data?.unlinkedDoctors.length ||
+                                linkDoctor.isPending
+                              }
+                              className={`${inputClass} min-w-0 flex-1`}
+                            >
+                              <option value=''>Pilih profil dokter untuk ditautkan</option>
+                              {unlinkedDoctors.data?.unlinkedDoctors.map((doctor) => (
+                                <option key={doctor.id} value={doctor.id}>
+                                  {doctor.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type='button'
+                              disabled={
+                                doctorAccountLinks.isLoading ||
+                                doctorAccountLinks.isError ||
+                                !(
+                                  doctorLinkDrafts[account.id] ??
+                                  unlinkedDoctors.data?.unlinkedDoctors[0]?.id
+                                ) ||
+                                linkDoctor.isPending
+                              }
+                              onClick={() =>
+                                linkDoctor.mutate({
+                                  userId: account.id,
+                                  doctorId:
+                                    doctorLinkDrafts[account.id] ??
+                                    unlinkedDoctors.data?.unlinkedDoctors[0]?.id ??
+                                    '',
+                                })
+                              }
+                              className='shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40'
+                            >
+                              {linkDoctor.isPending && linkDoctor.variables?.userId === account.id
+                                ? 'Menautkan…'
+                                : 'Tautkan profil'}
+                            </button>
+                          </>
+                        )}
+                        {doctorAccountLinks.error && (
+                          <p role='alert' className='self-center text-xs text-rose-700'>
+                            Gagal memuat tautan profil dokter: {doctorAccountLinks.error.message}
+                          </p>
+                        )}
+                        {linkDoctor.isSuccess && linkDoctor.variables?.userId === account.id && (
+                          <p role='status' className='self-center text-xs text-emerald-700'>
+                            Profil berhasil ditautkan.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -293,6 +397,16 @@ export default function UsersManagementView() {
           {updateRole.error && (
             <p role='alert' className='mt-4 text-xs text-rose-700'>
               {updateRole.error.message}
+            </p>
+          )}
+          {linkDoctor.error && (
+            <p role='alert' className='mt-4 text-xs text-rose-700'>
+              Gagal menautkan profil dokter: {linkDoctor.error.message}
+            </p>
+          )}
+          {unlinkedDoctors.error && (
+            <p role='alert' className='mt-4 text-xs text-rose-700'>
+              Gagal memuat profil dokter yang belum tertaut: {unlinkedDoctors.error.message}
             </p>
           )}
         </section>
