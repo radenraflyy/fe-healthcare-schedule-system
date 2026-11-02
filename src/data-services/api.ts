@@ -89,10 +89,10 @@ export const api = {
       { token },
     );
   },
-  async doctors() {
+  async doctors(page = 1, limit = 12) {
     return graphqlRequest<{ doctors: Page<Doctor> }>(
       'query Doctors($page: Int!, $limit: Int!) { doctors(page: $page, limit: $limit) { items { id name } page limit total totalPages } }',
-      { page: 1, limit: 100 },
+      { page, limit },
     );
   },
   async unlinkedDoctors() {
@@ -241,16 +241,20 @@ export const api = {
       page?: number;
       limit?: number;
       customerId?: string;
+      doctorId?: string;
+      status?: Appointment['status'];
       from?: string;
       to?: string;
     } = {},
   ) {
     return graphqlRequest<{ schedules: Page<Appointment> }>(
-      `query Schedules($page: Int!, $limit: Int!, $customerId: ID, $from: DateTime, $to: DateTime) { schedules(page: $page, limit: $limit, customerId: $customerId, from: $from, to: $to) { items { ${APPOINTMENT} } page limit total totalPages } }`,
+      `query Schedules($page: Int!, $limit: Int!, $customerId: ID, $doctorId: ID, $status: ScheduleStatus, $from: DateTime, $to: DateTime) { schedules(page: $page, limit: $limit, customerId: $customerId, doctorId: $doctorId, status: $status, from: $from, to: $to) { items { ${APPOINTMENT} } page limit total totalPages } }`,
       {
         page: options.page ?? 1,
-        limit: options.limit ?? 100,
+        limit: options.limit ?? 20,
         customerId: options.customerId,
+        doctorId: options.doctorId,
+        status: options.status,
         from: options.from,
         to: options.to,
       },

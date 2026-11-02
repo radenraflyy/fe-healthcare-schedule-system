@@ -21,12 +21,17 @@ const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 export default function DoctorManagementView() {
   const { user } = useAuth();
   const cache = useQueryClient();
+  const [doctorPage, setDoctorPage] = useState(1);
   const [selectedId, setSelectedId] = useState('');
   const [editing, setEditing] = useState<Doctor | null>(null);
   const [doctorName, setDoctorName] = useState('');
   const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
   const [disconnectDoctor, setDisconnectDoctor] = useState(false);
-  const doctors = useQuery({ queryKey: ['doctors'], queryFn: api.doctors, staleTime: 30_000 });
+  const doctors = useQuery({
+    queryKey: ['doctors', 'management', doctorPage],
+    queryFn: () => api.doctors(doctorPage, 12),
+    staleTime: 30_000,
+  });
   const doctorItems = doctors.data?.doctors.items ?? [];
   const currentId = selectedId || doctorItems[0]?.id || '';
   const selectedDoctor = useQuery({
@@ -233,6 +238,39 @@ export default function DoctorManagementView() {
               ))}
             </div>
           )}
+          {!doctors.isLoading &&
+            !doctors.error &&
+            doctors.data &&
+            doctors.data.doctors.totalPages > 1 && (
+              <div className='mb-5 flex items-center justify-between gap-2'>
+                <p className='text-[11px] text-slate-400'>
+                  {doctors.data.doctors.total} dokter · halaman {doctorPage} dari{' '}
+                  {doctors.data.doctors.totalPages}
+                </p>
+                <div className='flex gap-2'>
+                  <button
+                    type='button'
+                    disabled={doctorPage <= 1 || doctors.isFetching}
+                    onClick={() => setDoctorPage((current) => Math.max(1, current - 1))}
+                    className='rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:opacity-40'
+                  >
+                    Sebelumnya
+                  </button>
+                  <button
+                    type='button'
+                    disabled={doctorPage >= doctors.data.doctors.totalPages || doctors.isFetching}
+                    onClick={() =>
+                      setDoctorPage((current) =>
+                        Math.min(doctors.data!.doctors.totalPages, current + 1),
+                      )
+                    }
+                    className='rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:opacity-40'
+                  >
+                    Berikutnya
+                  </button>
+                </div>
+              </div>
+            )}
           <form
             noValidate
             onSubmit={(event) => {

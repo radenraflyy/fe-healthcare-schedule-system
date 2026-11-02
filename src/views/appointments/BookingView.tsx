@@ -21,7 +21,11 @@ export default function BookingView() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const doctors = useQuery({ queryKey: ['doctors'], queryFn: api.doctors, staleTime: 60_000 });
+  const doctors = useQuery({
+    queryKey: ['doctors', 1, 100],
+    queryFn: () => api.doctors(1, 100),
+    staleTime: 60_000,
+  });
   const form = useForm({
     defaultValues: { doctorId: '', date: '', slot: '', objective: '' },
     validators: { onSubmitAsync: bookingResolver },
