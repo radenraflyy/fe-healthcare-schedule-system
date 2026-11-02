@@ -54,19 +54,3 @@ export const doctorAvailabilityResolver = yupResolver<{
   endTime: string;
   slotMinutes: number;
 }>(doctorAvailabilitySchema);
-
-export const roleAssignmentSchema = yup.object({
-  userId: yup
-    .string()
-    .trim()
-    .matches(uuidPattern, 'User ID harus berupa UUID yang valid.')
-    .required('User ID wajib diisi.'),
-  role: yup
-    .mixed<'ADMIN' | 'DOCTOR' | 'CUSTOMER'>()
-    .oneOf(['ADMIN', 'DOCTOR', 'CUSTOMER'], 'Pilih role yang tersedia.')
-    .required('Role wajib dipilih.'),
-});
-export const roleAssignmentResolver = yupResolver<{
-  userId: string;
-  role: 'ADMIN' | 'DOCTOR' | 'CUSTOMER';
-}>(roleAssignmentSchema);

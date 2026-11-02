@@ -9,9 +9,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (!ready)
     return (
-      <div className='grid min-h-screen place-items-center text-sm text-slate-500'>
-        Memeriksa sesi…
-      </div>
+      <div className='grid min-h-screen place-items-center text-sm text-slate-500'>Loading…</div>
     );
   if (serviceError)
     return (

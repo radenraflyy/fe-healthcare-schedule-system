@@ -74,6 +74,9 @@ export const api = {
       { email, password },
     );
   },
+  async logout() {
+    return graphqlRequest<{ logout: boolean }>('mutation Logout { logout }');
+  },
   async register(email: string, password: string, name: string) {
     return graphqlRequest<{ register: User }>(
       `mutation Register($email: String!, $password: String!, $name: String) { register(email: $email, password: $password, name: $name) { ${USER} } }`,
@@ -90,6 +93,11 @@ export const api = {
     return graphqlRequest<{ doctors: Page<Doctor> }>(
       'query Doctors($page: Int!, $limit: Int!) { doctors(page: $page, limit: $limit) { items { id name } page limit total totalPages } }',
       { page: 1, limit: 100 },
+    );
+  },
+  async unlinkedDoctors() {
+    return graphqlRequest<{ unlinkedDoctors: Doctor[] }>(
+      'query UnlinkedDoctors { unlinkedDoctors { id name createdAt updatedAt } }',
     );
   },
   async doctor(id: string) {
@@ -138,6 +146,22 @@ export const api = {
     return graphqlRequest<{ setUserRole: User }>(
       'mutation SetUserRole($userId: ID!, $role: UserRole!) { setUserRole(userId: $userId, role: $role) { id email name role createdAt } }',
       { userId, role },
+    );
+  },
+  async adminUsers() {
+    return graphqlRequest<{ adminUsers: User[] }>(
+      'query AdminUsers { adminUsers { id email name role createdAt } }',
+    );
+  },
+  async createManagedUser(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'ADMIN' | 'DOCTOR' | 'CUSTOMER';
+  }) {
+    return graphqlRequest<{ createManagedUser: User }>(
+      'mutation CreateManagedUser($name: String, $email: String!, $password: String!, $role: UserRole!) { createManagedUser(name: $name, email: $email, password: $password, role: $role) { id email name role createdAt } }',
+      input,
     );
   },
   async scheduleHealth() {

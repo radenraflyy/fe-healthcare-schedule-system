@@ -7,14 +7,14 @@ export type AuthState = {
   ready: boolean;
   serviceError: string;
   retry: () => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 export const AuthContext = createContext<AuthState>({
   user: null,
   ready: false,
   serviceError: '',
   retry: () => {},
-  signOut: () => {},
+  signOut: async () => {},
 });
 export function useAuth() {
   return useContext(AuthContext);

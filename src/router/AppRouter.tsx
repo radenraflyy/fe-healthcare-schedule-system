@@ -13,6 +13,7 @@ import NotificationsPage from '../pages/notifications/NotificationsPage';
 import PatientDetailPage from '../pages/patients/PatientDetailPage';
 import PatientFormPage from '../pages/patients/PatientFormPage';
 import PatientListPage from '../pages/patients/PatientListPage';
+import UsersManagementPage from '../pages/users/UsersManagementPage';
 import WorkflowView from '../views/workflow/WorkflowView';
 import { RequireAuth } from './RequireAuth';
 import { RequireRole } from './RequireRole';
@@ -88,6 +89,14 @@ export default function AppRouter() {
           element={
             <RequireRole roles={['ADMIN']}>
               <WorkflowView />
+            </RequireRole>
+          }
+        />
+        <Route
+          path='admin/users'
+          element={
+            <RequireRole roles={['ADMIN']}>
+              <UsersManagementPage />
             </RequireRole>
           }
         />

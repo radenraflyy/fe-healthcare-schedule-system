@@ -10,17 +10,6 @@ const optionalText = (max: number, message: string) =>
     .max(max, message)
     .nullable()
     .transform((value, originalValue) => (originalValue === '' ? null : value));
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const optionalUuid = yup
-  .string()
-  .trim()
-  .nullable()
-  .transform((value, originalValue) => (originalValue === '' ? null : value))
-  .matches(uuidPattern, {
-    message: 'User ID harus berupa UUID yang valid.',
-    excludeEmptyString: true,
-  });
-
 export const patientSchema = yup.object({
   name: yup
     .string()
@@ -34,7 +23,6 @@ export const patientSchema = yup.object({
     .email('Format email belum valid.')
     .max(254, 'Email maksimal 254 karakter.')
     .required('Email wajib diisi.'),
-  userId: optionalUuid,
   phone: optionalText(40, 'Nomor telepon maksimal 40 karakter.'),
   gender: yup
     .mixed<'Perempuan' | 'Laki-laki' | 'Lainnya'>()
@@ -72,7 +60,6 @@ export const patientSchema = yup.object({
 export type PatientFormValues = {
   name: string;
   email: string;
-  userId: string;
   phone: string;
   gender: 'Perempuan' | 'Laki-laki' | 'Lainnya' | null;
   birthDate: string;

@@ -34,7 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ready,
         serviceError,
         retry: () => setRetryKey((value) => value + 1),
-        signOut: clearSession,
+        signOut: async () => {
+          await api.logout();
+          clearSession();
+        },
       }}
     >
       {children}

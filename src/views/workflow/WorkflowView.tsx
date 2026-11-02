@@ -24,7 +24,7 @@ export default function WorkflowView() {
   const [draft, setDraft] = useState<WorkflowStep[] | null>(null);
   const form = useForm({
     defaultValues: { title: '', description: '' },
-    validators: { onSubmit: workflowStepResolver },
+    validators: { onSubmitAsync: workflowStepResolver },
     onSubmit: async ({ value }) => addStep(value),
   });
   const steps = draft ?? workflow.data?.workflowSteps ?? [];
