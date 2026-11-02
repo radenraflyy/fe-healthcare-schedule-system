@@ -13,7 +13,7 @@ import { registerResolver } from './register/config';
 export default function RegisterView() {
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm({
-    defaultValues: { name: '', email: '', password: '', confirmPassword: '', accepted: false },
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
     validators: { onSubmitAsync: registerResolver },
     onSubmit: async ({ value }) => submitRegister(value),
   });
@@ -27,7 +27,6 @@ export default function RegisterView() {
       email: string;
       password: string;
       confirmPassword: string;
-      accepted: boolean;
     }) => api.register(email, password, name),
     onSuccess: () => form.reset(),
   });
@@ -39,7 +38,6 @@ export default function RegisterView() {
     email: string;
     password: string;
     confirmPassword: string;
-    accepted: boolean;
   }) {
     try {
       await registration.mutateAsync(values);
@@ -179,43 +177,6 @@ export default function RegisterView() {
             )}
           </form.Field>
         </div>
-        <form.Field name='accepted'>
-          {(field) => (
-            <>
-              <label className='flex cursor-pointer items-start gap-2.5 pt-1 text-xs leading-5 text-slate-500'>
-                <input
-                  type='checkbox'
-                  checked={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.checked)}
-                  className='mt-1 size-3.5 shrink-0 rounded border-slate-300 accent-rata-red'
-                />
-                <span>
-                  Saya menyetujui{' '}
-                  <a
-                    href='#syarat'
-                    className='font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2'
-                  >
-                    Syarat &amp; Ketentuan
-                  </a>{' '}
-                  dan{' '}
-                  <a
-                    href='#privasi'
-                    className='font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2'
-                  >
-                    Kebijakan Privasi
-                  </a>
-                  .
-                </span>
-              </label>
-              {field.state.meta.errors[0] && (
-                <p role='alert' className='text-xs text-rose-700'>
-                  {field.state.meta.errors[0].message}
-                </p>
-              )}
-            </>
-          )}
-        </form.Field>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <button

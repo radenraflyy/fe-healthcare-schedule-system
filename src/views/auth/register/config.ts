@@ -23,10 +23,6 @@ export const registerSchema = yup.object({
     .string()
     .oneOf([yup.ref('password')], 'Konfirmasi kata sandi belum sama.')
     .required('Konfirmasi kata sandi wajib diisi.'),
-  accepted: yup
-    .boolean()
-    .oneOf([true], 'Setujui Syarat & Ketentuan dan Kebijakan Privasi untuk melanjutkan.')
-    .required('Persetujuan wajib diisi.'),
 });
 
 export const registerResolver = yupResolver<{
@@ -34,5 +30,4 @@ export const registerResolver = yupResolver<{
   email: string;
   password: string;
   confirmPassword: string;
-  accepted: boolean;
 }>(registerSchema);
